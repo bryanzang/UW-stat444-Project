@@ -1,0 +1,324 @@
+%% Template for the submission to:
+%%   The Annals of Applied Statistics [AOAS]
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% In this template, the places where you   %%
+%% need to fill in your information are     %%
+%% indicated by '???'.                      %%
+%%                                          %%
+%% Please do not use \input{...} to include %%
+%% other tex files. Submit your LaTeX       %%
+%% manuscript as one .tex document.         %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[aoas]{imsart}
+
+%% Packages
+\RequirePackage{amsthm,amsmath,amsfonts,amssymb}
+\RequirePackage[authoryear]{natbib}
+\RequirePackage[colorlinks,citecolor=blue,urlcolor=blue]{hyperref}
+\RequirePackage{graphicx, booktabs, hyperref}
+
+%\RequirePackage[colorlinks,citecolor=blue,urlcolor=blue]{hyperref}%% uncomment this for coloring bibliography citations and linked URLs
+
+\startlocaldefs
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                          %%
+%% Uncomment next line to change            %%
+%% the type of equation numbering           %%
+%%                                          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\numberwithin{equation}{section}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                          %%
+%% For Axiom, Claim, Corollary, Hypothesis, %%
+%% Lemma, Theorem, Proposition              %%
+%% use \theoremstyle{plain}                 %%
+%%                                          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\theoremstyle{plain}
+%\newtheorem{???}{???}
+%\newtheorem*{???}{???}
+%\newtheorem{???}{???}[???]
+%\newtheorem{???}[???]{???}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                          %%
+%% For Assumption, Definition, Example,     %%
+%% Notation, Property, Remark, Fact         %%
+%% use \theoremstyle{remark}                %%
+%%                                          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\theoremstyle{remark}
+%\newtheorem{???}{???}
+%\newtheorem*{???}{???}
+%\newtheorem{???}{???}[???]
+%\newtheorem{???}[???]{???}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Please put your definitions here:        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\endlocaldefs
+
+\begin{document}
+
+%\SweaveOpts{concordance=TRUE}
+
+\begin{frontmatter}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                          %%
+%% Enter the title of your article here     %%
+%%                                          %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Spatial Models for Canadian Temperature Inference}
+\runtitle{STAT444: Final Project}
+
+\begin{aug}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Only one address is permitted per author. %%
+%% Only division, organization and e-mail is %%
+%% included in the address.                  %%
+%% Additional information can be included in %%
+%% the Acknowledgments section if necessary. %%
+%% ORCID can be inserted by command:         %%
+%% \orcid{0000-0000-0000-0000}               %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\author[A]{\fnms{Bryan}~\snm{Zang}\ead[label=e1]{bszang@uwaterloo.ca}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Addresses                                %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\address[A]{Department of Statistics,
+University of Waterloo\printead[presep={,\ }]{e1}}
+
+\end{aug}
+
+\begin{abstract}
+Climate change has been a hot topic over the past few decades and remains to be so; an important factor to measure then is temperature. We will show that under some naive assumptions, the global additive model provides the most interpretable results in understanding the spatial variance of Canadian temperature change over some defined regions.
+\end{abstract}
+
+\end{frontmatter}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Please use \tableofcontents for articles %%
+%% with 50 pages and more                   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\tableofcontents
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Main text entry area:
+\section{Introduction}\hfill\\
+
+With the progression in science and technology, it has been evident over the past decades that human activity has caused significant amounts of greenhouse gas (GHG) emissions. These GHG emissions trap radiation and heat from the sun, leading to global warming and climate change. To measure the rate and effect of these GHG emissions, we can use temperature as it is a key factor influencing various parts of the regional and global ecosystem \footnote{\cite{b1}}. We wish to model the temperature change in Canada hoping to identify possible variances in the regional data and if so, why? This will be done by fitting a selected model to the regional data and assessing the fit of the model.
+
+\section{Data}\hfill\\
+<<echo=FALSE, warning=FALSE, message=FALSE>>=
+# install packages
+library(gamair)
+library(mgcv)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+# load the CanWeather dataset
+data(canWeather)
+# regions
+regions <- levels(CanWeather$region)
+@
+Our data comes from the \texttt{R} package \texttt{gamair} \footnote{\cite{b2}}, it is the \texttt{CanWeather} dataset which is a dataset describing Canadian temperature (averaged over the years 1960-1994) throughout a year at 35 different locations. There is a column of integers denoting the day in the year (1-365), a numerical column for the mean temperature for that day in Celsius, a column of categorical data denoting the general location (Arctic, Atlantic, Continental, or Pacific), a numerical column denoting the location latitude, and another categorical column of location names. We conducted some brief exploratory data analysis to better understand the data and temperature arises as the response variable of interest, and covariates such as time and region appear to be interesting in the sense that we are able to partition data into portions local to some variable (i.e., the temperature change in $x$ days or the overall temperature model in the Atlantic region). Conducting a summary of the data we have the table below
+<<echo=FALSE, fig.align='center'>>=
+kbl(summary(CanWeather)[-7,-5], booktabs=T, linesep='') %>%
+  kable_styling(latex_options = "hold_position", font_size = 10)
+@
+\newpage
+
+\noindent and the following plots
+<<echo=FALSE,fig.align='center', out.width='99%', out.height='50%'>>=
+par(mfrow=c(2,2))
+# Scatter plot: Temperature vs. Time
+plot(CanWeather$time, CanWeather$T,
+     main = "Temperature vs. Time", 
+     col=adjustcolor('black',alpha=0.1),
+     xlab = "Time", ylab = "Temperature (T)")
+# Scatter plot: Temperature vs. Latitude
+plot(CanWeather$latitude, CanWeather$T,
+     main = "Temperature vs. Latitude",
+     col=adjustcolor('black',alpha=0.1),
+     xlab = "Latitude", ylab = "Temperature (T)")
+# Box plot: Temperature vs. Region
+boxplot(CanWeather$T ~ CanWeather$region,
+        main = "Temperature vs. Region",
+        xlab = "Region", ylab = "Temperature (T)")
+# Box plot: Temperature vs. Place
+boxplot(CanWeather$T ~ CanWeather$place, 
+        main = "Temperature vs. Place",
+        xlab = "Place", ylab = "Temperature (T)")
+@
+
+\section{Methods}\hfill\\
+
+To simplify the analysis we implemented two types of approach: the first being a localized model and the second being a global model. By inspection, it can be seen that the data follows a clear bell-shaped distribution and so a direct observation was made to see a polynomial regression may have been suitable. Initial models indicated that a global polynomial fit was not suitable and un-interpretable. To account for this issue, we fit a polynomial model to each region hence mitigating the fitting problem:
+$$\texttt{region\$T}\sim\texttt{Poly(region\$time, deg=6)}$$
+Polynomials of degree 6 were used to fit the models since they are the lowest degree polynomials that provided sufficiently well enough fits for the data --- i.e., polynomials of lower degree did not fit the data well and polynomials of higher degree did not provide significant improvement in model fit for the corresponding computational costs.
+
+With the additive models, we also fit in a similar manner of localizing a model to each region; but since the additive model can indeed incorporate regional indicators (specifically latitude) without losing significant goodness of fit, we also fit a global additive model with two covariates. This gives
+$$\texttt{region\$T}\sim\texttt{Spline(region\$time)}$$
+for the local spline regression model, and
+$$\texttt{T}\sim\texttt{Spline(time, deg=3)}+\texttt{Spline(latitude, deg=3)}$$
+for the global additive model. We use \texttt{mgcv}'s automatic selection feature to obtain our $\lambda$ values and knot counts for the additive models and it is important to note in the global additive model we use B-splines for smoothing \texttt{time} and cubic regression splines to smooth \texttt{latitude} for the purposes of a better fit.
+
+In determining the goodness of the model fits, we will use the GCV estimates (expected generalization errors) and the adjusted R$^2$ values as these two statistics both are indicators for how well the model explains the data. The mean adjusted R$^2$ is used for the global additive model and the mean non-adjusted R$^2$ is used for all other models, since there is only one covariate in each of the localized models (adjusted and non-adjusted R$^2$ values are approximately equal) and we wish to be able to interpret the local R$^2$ values relative to the global model. As for the GCV estimates, \texttt{mgcv} provides GCV estimates for all the additive models, so we only have to compute the GCV estimate for the polynomial regression models; to be able to interpret these GCV estimates with respect to the global additive model results, we compute the GCV estimate by assuming the true temperature value to be the average temperature over each place in a region, that is
+$$\texttt{true T at region r}=\frac{1}{\texttt{\# of places in r}}\sum_{\texttt{place in r}}(\texttt{T at place})$$
+hence we will compute the fitted values in a similar manner to match the dimension of the true temperature value vector.
+
+\section{Results}\hfill\\
+
+Fitting our models to the data we get the following plots where the fitted line is in red and the confidence bands are in orange.
+<<echo=FALSE, fig.align='center', out.width='101%', out.height='52%', fig.show='hold'>>=
+# fit to spline
+gamFit <- function(location, i, p) {
+  mod <- gam(T~s(time,bs='bs'), data=location)
+  if (p) {
+    mgcvfit <- predict(mod,data.frame(time=1:365),se.fit=TRUE)
+    plot(location$T~location$time, xlab=paste(regions[i], 'Day in a Year'),
+         ylab='Temperature in Celsius', col=adjustcolor('black', alpha=0.2),
+         main = paste0("Spline Reg. fit on ", regions[i]))
+    with(mgcvfit,lines(fit, col='red'))
+    with(mgcvfit,lines(fit-2*se.fit,lty='dashed', col='orange'))
+    with(mgcvfit,lines(fit+2*se.fit,lty='dashed', col='orange'))
+  }
+  return(mod)
+}
+# fit to polynomial
+polyFit <- function(location, i, degree, p) {
+  mod <- lm(location$T ~ poly(location$time,deg=degree))
+  if (p) {
+    plot(location$T~location$time, xlab=paste(regions[i], 'Day in a Year'),
+         ylab='Temperature in Celsius', col=adjustcolor('black', alpha=0.2),
+         main = paste0("Poly. Reg. fit on ", regions[i]))
+    predint <- predict(mod, data.frame(rep(1:365, length(unique(location$place)))),
+                       interval='confidence', level = 0.95)
+    lines(predint[,1], col='red')
+    lines(predint[,2],lty='dashed', col='orange')
+    lines(predint[,3],lty='dashed', col='orange')
+  }
+  RSS <- sum(resid(mod)^2)
+  n <- length(resid(mod))
+  X <- model.matrix(mod)
+  H <- X %*% solve(t(X) %*% X) %*% t(X)
+  tr_H <- sum(diag(H))
+  GCV <- RSS / (n * (1 - tr_H/n)^2)
+  return(list(model = mod, gcv = GCV))
+}
+par(mfrow=c(2,2))
+# polynomial fits
+for (i in 1:length(regions)) {
+  polyFit(CanWeather[which(CanWeather$region == regions[i]), ], i, 6, T)
+}
+@
+
+<<echo=FALSE, fig.align='center', out.width='101%', out.height='53%', fig.show='hold'>>=
+par(mfrow=c(2,2))
+# spline fits
+for (i in 1:length(regions)) {
+  gamFit(CanWeather[which(CanWeather$region == regions[i]), ], i, T)
+}
+# global gam
+gam_glob <- gam(T ~ s(time, bs='bs') + s(latitude, bs='cr'), data=CanWeather)
+r.sq_scores_gam_glob <- summary(gam_glob)$r.sq
+gcv_gam_glob <- gam_glob$gcv.ubre
+for (i in 1:length(regions)) {
+  region <- regions[i]
+  latitudes_in_region <- CanWeather$latitude[CanWeather$region == region]
+  location <- CanWeather[CanWeather$region == region,]
+  mean_latitude <- mean(latitudes_in_region, na.rm = TRUE)
+  
+  mgcvfit <- predict(gam_glob,data.frame(time=1:365, latitude=mean_latitude), se.fit=TRUE)
+  plot(location$T~location$time, xlab=paste(regions[i], 'Day in a Year'),
+       ylab='Temperature in Celsius', col=adjustcolor('black', alpha=0.2),
+       main = paste0("GAM: Temp vs. ", regions[i]))
+  with(mgcvfit,lines(fit, col='red'))
+  with(mgcvfit,lines(fit-2*se.fit,lty='dashed', col='orange', lwd=1.5))
+  with(mgcvfit,lines(fit+2*se.fit,lty='dashed', col='orange', lwd=1.5))
+}
+# polynomial gcv and r2
+gcv_scores_poly <- list()
+r.sq_scores_poly <- list()
+for (i in 1:length(regions)) {
+  fit <- polyFit(CanWeather[which(CanWeather$region == regions[i]), ], i, 6, F)
+  gcv_scores_poly[[regions[i]]] <- fit$gcv
+  r.sq_scores_poly[[regions[i]]] <- summary(fit$model)$r.squared
+}
+# spline gcv and r2
+gcv_scores_gam <- list()
+r.sq_scores_gam <- list()
+for (i in 1:length(regions)) {
+  fit <- gamFit(CanWeather[which(CanWeather$region == regions[i]), ], i, F)
+  gcv_scores_gam[[regions[i]]] <- summary(fit)$sp.criterion
+  r.sq_scores_gam[[regions[i]]] <- summary(fit)$r.sq
+}
+df <- data.frame(
+  'Polynomial'=c(mean(unlist(r.sq_scores_poly)), mean(unlist(gcv_scores_poly))),
+  'Spline'=c(mean(unlist(r.sq_scores_gam)), mean(unlist(gcv_scores_gam))),
+  'GAM'=c(r.sq_scores_gam_glob, gcv_gam_glob))
+rownames(df) <- c('R squared', 'GCV estimate')
+@
+
+\noindent Notice the polynomial models when plotted out have these "jumps" nearing the end of the year --- the reason behind this requires a deeper understanding of the \texttt{R} functions used to fit and plot the models, however we suspect the reason behind this might be due to the repetition \texttt{time} (since it a sequence of numbers 1 to 365 repeated $n$ times for $n$ places in the region). Observe also that the plot of the global additive model for the Pacific region has a slightly higher amplitude than the two localized models. The cause of this is likely due to the fact that this model is fit globally, and since there is less data in the Pacific region than that of Continental and Atlantic, the influence of the trends in those two regions may have dominated that of the Pacific. Then to assess the goodness of fits, we compute the GCV estimates and R$^2$ values to get the results below.
+<<echo=FALSE, fig.align='center'>>=
+kbl(df, booktabs=T, linesep='') %>%
+  kable_styling(latex_options = "hold_position", font_size = 11)
+@
+
+Based on these values it can be concluded that while for the global additive model, the R$^2$ value is slightly better and the GCV estimate is slightly larger than that of the two localized models, in general there is minimal difference between the goodness of fit within each of the models.
+
+\section{Conclusions}\hfill\\
+
+While each method and corresponding model(s) fits to the data relatively well, we recall that the point of the study is an attempt to understand the spatial variance of annual Canadian temperature with respect to region; with this in mind, it is sensible to select the global additive model as our prime choice in understanding the data. This is because the global additive model not only provides easily interpretable results --- since we can plot out the partial effects and inspect the relationships between each covariate and \texttt{T} --- it also provides insight into national temperature patterns and not just regional patterns. In restricting our models to be local to a region, we gain minimal improvements in the goodness of fits at the cost of difficult and even un-interpretable results in which we cannot use to compare the relative spatial patterns of the annual temperature. It also makes it very difficult to understand the relationsip between each of the local models since each one is a separate model fit to one specific region, thus hindering the interpretability of the overall results. In addition, it is worth noting naive methods were implemented since the data used was relatively simple; if it were the case to see complicated and/or much larger amounts/types of data, other methods and models are recommended as they may be able to provide more accurate fits by taking into consideration more geological and meteorological phenomena.
+
+\newpage
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Supplementary Material, including data   %%
+%% sets and code, should be provided in     %%
+%% {supplement} environment with title      %%
+%% and short description. It cannot be      %%
+%% available exclusively as external link.  %%
+%% All Supplementary Material must be       %%
+%% available to the reader on Project       %%
+%% Euclid with the published article.       %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\begin{supplement}
+%\stitle{???}
+%\sdescription{???.}
+%\end{supplement}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                  The Bibliography                       %%
+%%                                                         %%
+%%  imsart-nameyear.bst  will be used to                   %%
+%%  create a .BBL file for submission.                     %%
+%%                                                         %%
+%%  Note that the displayed Bibliography will not          %%
+%%  necessarily be rendered by Latex exactly as specified  %%
+%%  in the online Instructions for Authors.                %%
+%%                                                         %%
+%%  MR numbers will be added by VTeX.                      %%
+%%                                                         %%
+%%  Use \cite{...} to cite references in text.             %%
+%%                                                         %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% if your bibliography is in bibtex format, uncomment commands:
+\bibliographystyle{imsart-nameyear} % Style BST file
+%\bibliography{bibliography}       % Bibliography file (usually '*.bib')
+
+%% or include bibliography directly:
+\begin{thebibliography}{1}
+\bibitem[\protect\citeauthoryear{Environment and Climate Change Canada}{2023}]{b1}
+\textsc{Environment of Canada} (2023). \textit{Canadian Environmental Sustainability Indicators: Temperature change in Canada}. Available at \href{https://www.canada.ca/en/environment-climate-change/services/environmental-indicators/temperature-change.html}{Canadian Environmental Sustainability Indicators: Temperature change in Canada}. Government of Canada.
+
+\bibitem[\protect\citeauthoryear{Ramsay and Silverman}{2006}]{b2}
+\textsc{Ramsay J.O. and B.W. Silverman} (2006). \textit{Functional Data Analysis}, 2nd ed. Springer.
+\end{thebibliography}
+
+\end{document}
